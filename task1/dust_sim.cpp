@@ -45,15 +45,15 @@ int main(int argc, char **argv)
     // vari[1]: sampling
     // vari[2]: interval
 
-    /* Read input arguments */
+    /* Export input arguments 
     cout << "You have entered " << argc
          << " arguments:"
-         << "\n";
+         << "\n";*/
 
     for (int i = 0; i < argc; ++i)
     {
         mer_str = mer_str + argv[i];
-        cout << mer_str << "\n";
+        //cout << mer_str << "\n";
     }
 
     /*Check error arguments*/
@@ -112,6 +112,8 @@ int main(int argc, char **argv)
     /* Open file dust_sensor */
     ofstream myfile;
     myfile.open("dust_sensor.csv", ios::trunc);
+
+    /* Check error open file*/
     if (!myfile)
     {
         task1_err << "Error " << setw(2) << setfill('0') << 3 << ": " << err_note[3];
