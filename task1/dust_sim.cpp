@@ -8,6 +8,54 @@
 using namespace std;
 
 /* Function to check a number */
+bool isNumber(const string &s);
+
+/* Function to check error input */
+int check_err(int count, char **args, int check_file);
+
+/* Write to file error*/
+void write_err(ofstream &file_err, ofstream &file_src, int check_err);
+
+/* Assign value for variables*/
+void assign(string mer_str, int *vari, int argc, char **argv);
+
+/* Export data of sensor to myfile*/
+void exp_data(ofstream &myfile, int *vari);
+
+/* main */
+int main(int argc, char **argv)
+{
+
+    string mer_str;
+    int vari[3]; // vari[0]: number of sensors, vari[1]: sampling, vari[2]: interval
+
+    for (int i = 0; i < argc; ++i)
+        mer_str = mer_str + argv[i];
+
+    /* Open file dust_sensor */
+    ofstream myfile;
+    myfile.open("dust_sensor.csv", ios::trunc);
+
+    /*Check error arguments*/
+    ofstream task1_err;
+    task1_err.open("task1.log", ios::trunc);
+
+    /* Write error */
+    int chk = check_err(argc, argv, !myfile);
+    write_err(task1_err, myfile, chk);
+    if (chk != 0)
+        return 0;
+
+    /* Assign value for variables*/
+    assign(mer_str, &vari[0], argc, argv);
+
+    /* Export data of sensor to myfile*/
+    exp_data(myfile, &vari[0]);
+
+    return 0;
+}
+
+/* Function to check a number */
 bool isNumber(const string &s)
 {
     for (char const &ch : s)
@@ -19,8 +67,12 @@ bool isNumber(const string &s)
 }
 
 /* Function to check error input */
-int check_err(int count, char **args)
+int check_err(int count, char **args, int check_file)
 {
+    if (check_file == 1)
+    {
+        return 3;
+    }
     if (count % 2 == 0)
     {
         return 1;
@@ -33,45 +85,20 @@ int check_err(int count, char **args)
     return 0;
 }
 
-/* main */
-int main(int argc, char **argv)
+/* Write to file error*/
+void write_err(ofstream &file_err, ofstream &file_src, int check_err)
 {
-    const int val_def[3] = {1, 30, 24}; // Default value for n, st, si
-    string mer_str;
-    const int dust_con_max = 600;
-    /* Declare variable */
-    int vari[3];
-    // vari[0]: number of sensors
-    // vari[1]: sampling
-    // vari[2]: interval
-
-    /* Export input arguments 
-    cout << "You have entered " << argc
-         << " arguments:"
-         << "\n";*/
-
-    for (int i = 0; i < argc; ++i)
-    {
-        mer_str = mer_str + argv[i];
-        //cout << mer_str << "\n";
-    }
-
-    /*Check error arguments*/
-    ofstream task1_err;
-    task1_err.open("task1.log", ios::trunc);
-
-    /* Write error */
     const char *err_note[] = {"No error", "Invalid command", "Invalid argument",
                               "Denied access dust_sensor.csv"};
 
-    if (check_err(argc, argv) != 0)
-    {
-        task1_err << "Error " << setw(2) << setfill('0') << check_err(argc, argv) << ": " << err_note[check_err(argc, argv)];
-        task1_err.close();
-        return 1;
-    }
+    file_err << "Error " << setw(2) << setfill('0') << check_err << ": " << err_note[check_err];
+    file_err.close();
+}
 
-    /* Assign value for variables*/
+/* Assign value for variables*/
+void assign(string mer_str, int *vari, int argc, char **argv)
+{
+    int val_def[3] = {1, 30, 24}; // Default value for n, st, si
     int index[3];
     index[0] = mer_str.find("-n");
     index[1] = mer_str.find("-st");
@@ -95,49 +122,35 @@ int main(int argc, char **argv)
             vari[i] = val_def[i];
         }
     }
+}
 
+/* Export data of sensor to myfile*/
+void exp_data(ofstream &myfile, int *vari)
+
+{
+    int dust_con_max = 600;
     int count = vari[2] * 3600 / vari[1]; // number of sampling times
     float dust_con;                       // dust concentration
 
     /* Current Time*/
     time_t now = time(0); // current time from 1970 (seconds)
     srand(now);
-    tm *ltm = localtime(&now); // struct time tm
-    /* Start time from 00:00:00*/
-    ltm->tm_hour = 0;
-    ltm->tm_min = 0;
-    ltm->tm_sec = 0;
-    now = mktime(ltm);
-
-    /* Open file dust_sensor */
-    ofstream myfile;
-    myfile.open("dust_sensor.csv", ios::trunc);
-
-    /* Check error open file*/
-    if (!myfile)
-    {
-        task1_err << "Error " << setw(2) << setfill('0') << 3 << ": " << err_note[3];
-        task1_err.close();
-        return 1;
-    }
+    time_t past = now - vari[2] * 3600;
+    tm *ltm = localtime(&past); // struct time tm
 
     /* Write title */
     myfile << "id,time,values" << endl;
 
     /* Write result */
-    for (int i = 0; i < count; i++)
+    for (int i = 0; i <= count; i++)
     {
         for (int j = 0; j < vari[0]; j++)
         {
             dust_con = static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / dust_con_max));
             myfile << j + 1 << "," << 1900 + ltm->tm_year << ":" << setw(2) << setfill('0') << 1 + ltm->tm_mon << ":" << setw(2) << setfill('0') << ltm->tm_mday << " " << setw(2) << setfill('0') << ltm->tm_hour << ":" << setw(2) << setfill('0') << ltm->tm_min << ":" << setw(2) << setfill('0') << ltm->tm_sec << "," << fixed << setprecision(1) << dust_con << endl;
         }
-        now = now + vari[1]; // next time point
-        ltm = localtime(&now);
+        past = past + vari[1]; // next time point
+        ltm = localtime(&past);
     }
-
     myfile.close();
-    task1_err << "No error";
-    task1_err.close();
-    return 0;
 }
