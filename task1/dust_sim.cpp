@@ -142,12 +142,16 @@ void exp_data(ofstream &myfile, int *vari)
     myfile << "id,time,values" << endl;
 
     /* Write result */
+    char buffer[80];
     for (int i = 0; i <= count; i++)
     {
         for (int j = 0; j < vari[0]; j++)
         {
-            dust_con = static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / dust_con_max));
-            myfile << j + 1 << "," << 1900 + ltm->tm_year << ":" << setw(2) << setfill('0') << 1 + ltm->tm_mon << ":" << setw(2) << setfill('0') << ltm->tm_mday << " " << setw(2) << setfill('0') << ltm->tm_hour << ":" << setw(2) << setfill('0') << ltm->tm_min << ":" << setw(2) << setfill('0') << ltm->tm_sec << "," << fixed << setprecision(1) << dust_con << endl;
+            dust_con = static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / dust_con_max));            
+            strftime(buffer, 26, "%Y:%m:%d %H:%M:%S", ltm);
+            myfile << j + 1 << ",";
+            myfile << buffer << ",";
+            myfile << fixed << setprecision(1) << dust_con << endl;
         }
         past = past + vari[1]; // next time point
         ltm = localtime(&past);
