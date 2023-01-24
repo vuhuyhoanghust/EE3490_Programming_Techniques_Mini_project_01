@@ -1,0 +1,22 @@
+id, pollution,duration
+1,Good,0
+1,Moderate,0
+1,Slightly unhealthy,0
+1,Unhealthy,0
+1,Very unhealthy,0
+1,Hazardous,0
+1,Extremely hazardous,3
+2,Good,0
+2,Moderate,0
+2,Slightly unhealthy,0
+2,Unhealthy,0
+2,Very unhealthy,2
+2,Hazardous,1
+2,Extremely hazardous,0
+3,Good,0
+3,Moderate,0
+3,Slightly unhealthy,1
+3,Unhealthy,0
+3,Very unhealthy,0
+3,Hazardous,2
+3,Extremely hazardous,0

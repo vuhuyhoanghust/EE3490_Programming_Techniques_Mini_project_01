@@ -11,6 +11,7 @@
 using namespace std;
 
 string level_def[] = {"Good", "Moderate", "Slightly unhealthy", "Unhealthy", "Very unhealthy", "Hazardous", "Extremely hazardous"};
+int num_of_level = sizeof(level_def) / sizeof(level_def[0]);
 
 class dust_data
 {
@@ -50,6 +51,44 @@ void export_outlier(vector<dust_data> &data_outlier, int count_outlier, ofstream
 /* AQI calculate*/
 aqi aqi_cal(float n);
 
+/* Export to statistics file*/
+void export_stat(ofstream &dust_statistics, int num_sen, int **level_stat);
+
+/* Export to summary file*/
+void export_summary(vector<dust_data> &data_valid, int num_sen, float *max_index, float *min_index, float *sum_sen, float *count_sen, int count_valid, ofstream &dust_summary);
+
+/* Export to aqi file*/
+void export_aqi(ofstream &aqi_data, float **sum_per_hour, int **num_per_hour, int num_pt_time, int num_sen, int **&level_stat, time_t aqi_timet_start);
+
+/* dynamically allocate 2 dimensional array */
+void dynam_2D_float (float **&array, int row, int col)
+{
+
+    array = new float *[row];
+    for (int i = 0; i < row; i++)
+    {
+        array[i] = new float[col];
+        for (int j = 0; j < col; j++)
+        {
+            array[i][j] = 0; // initial condition
+        }
+    }
+}
+
+void dynam_2D_int (int **&array, int row, int col)
+{
+
+    array = new int *[row];
+    for (int i = 0; i < row; i++)
+    {
+        array[i] = new int[col];
+        for (int j = 0; j < col; j++)
+        {
+            array[i][j] = 0; // initial condition
+        }
+    }
+}
+
 int main(int argc, char **argv)
 {
     string filename = set_filename(argc, argv);
@@ -69,6 +108,10 @@ int main(int argc, char **argv)
     /* Open file to export dust_summary */
     ofstream dust_summary;
     dust_summary.open("dust_summary.csv", ios::out);
+
+    /* Open file to export dust_statistics */
+    ofstream dust_statistics;
+    dust_statistics.open("dust_statistics.csv", ios::out);
 
     /* Creat vector of data sensor */
     vector<dust_data> data_valid;
@@ -107,25 +150,15 @@ int main(int argc, char **argv)
 
     int num_pt_time = (aqi_timet_end - aqi_timet_start) / 3600 + 1; // number of times checking aqi index
 
-    float **sum_per_hour = new float *[num_sen]; // array stores sum of value of sensors per hour
-    for (int i = 0; i < num_sen; i++)
-    {
-        sum_per_hour[i] = new float[num_pt_time];
-        for (int j = 0; j < num_pt_time; j++)
-        {
-            sum_per_hour[i][j] = 0; // initial condition
-        }
-    }
+    float **sum_per_hour; // array stores sum of value of sensors per hour
+    dynam_2D_float(sum_per_hour, num_sen, num_pt_time);
 
-    int **num_per_hour = new int *[num_sen]; // array stores number of times the sensor retrieves the result per hour
-    for (int i = 0; i < num_sen; i++)
-    {
-        num_per_hour[i] = new int[num_pt_time];
-        for (int j = 0; j < num_pt_time; j++)
-        {
-            num_per_hour[i][j] = 0; // initial condition
-        }
-    }
+    int **num_per_hour; // array stores number of times the sensor retrieves the result per hour
+    dynam_2D_int(num_per_hour, num_sen, num_pt_time);
+ 
+    int **level_stat; // array stores statistics level of pollution
+    dynam_2D_int(level_stat, num_sen, num_of_level);
+
 
     int row_index, col_index;
 
@@ -148,42 +181,13 @@ int main(int argc, char **argv)
         }
     }
     /* Export aqi index to file*/
-    char buffer[80];
-    aqi_data << "id,time,values,aqi,pollution" << endl;
-    struct aqi aqi_temp;
-    float mean_per_hour;
-    for (int j = 0; j < num_pt_time; j++)
-    {
-        for (int i = 0; i < num_sen; i++)
-        {
-            aqi_data << i + 1 << ",";
-            strftime(buffer, 26, "%Y:%m:%d %H:%M:%S", localtime(&aqi_timet_start));
-            mean_per_hour = sum_per_hour[i][j] / num_per_hour[i][j];
-            aqi_temp = aqi_cal(mean_per_hour);
-            aqi_data << buffer << "," << fixed << setprecision(1) << mean_per_hour << "," << aqi_temp.aqi_index << "," << aqi_temp.aqi_level << endl;
-        }
-        aqi_timet_start += 3600;
-    }
+    export_aqi(aqi_data, sum_per_hour, num_per_hour, num_pt_time, num_sen, level_stat, aqi_timet_start);
 
     /* Export to summary file*/
-    struct dust_data temp;
-    double dist = abs(difftime(mktime(&data_valid[0].tm), mktime(&data_valid[count_valid - 1].tm)));
-    uint64_t hour = floor(dist / 3600);
-    int minu = floor(dist / 60) - 60 * hour;
-    int seco = dist - hour * 3600 - minu * 60;
-    cout << dist;
+    export_summary(data_valid, num_sen, max_index, min_index, sum_sen, count_sen, count_valid, dust_summary);
 
-    dust_summary << "id, parameters, time, values" << endl;
-    for (int i = 0; i < num_sen; i++)
-    {
-        temp = data_valid[max_index[i]];
-        dust_summary << i + 1 << ", max," << temp.time << "," << temp.value << endl;
-        temp = data_valid[min_index[i]];
-        dust_summary << i + 1 << ", min," << temp.time << "," << temp.value << endl;
-        dust_summary << i + 1 << ", mean,";
-        dust_summary << std::setfill('0') << std::setw(2) << hour << ":" << std::setfill('0') << std::setw(2) << minu << ":" << std::setfill('0') << std::setw(2) << seco;
-        dust_summary << "," << fixed << setprecision(1) << sum_sen[i] / count_sen[i] << endl;
-    }
+    /* Export to statistics file*/
+    export_stat(dust_statistics, num_sen, level_stat);
 
     return 0;
 }
@@ -261,6 +265,7 @@ void export_outlier(vector<dust_data> &data_outlier, int count_outlier, ofstream
 
 /* AQI calculate*/
 aqi aqi_cal(float n)
+
 {
     // n: average value per hour
     aqi temp;
@@ -275,11 +280,69 @@ aqi aqi_cal(float n)
             slope = (aqi_def[i] - aqi_def[i - 1]) / (concen_def[i] - concen_def[i - 1]);
             temp.aqi_index = aqi_def[i - 1] + slope * (n - concen_def[i - 1]);
             temp.aqi_level = level_def[i - 1];
-            temp.aqi_encode = i-1;
+            temp.aqi_encode = i - 1;
             return temp;
         }
     }
     temp.aqi_index = 0;
     temp.aqi_level = "Error";
     return temp;
+}
+
+/* Export to statistics file*/
+void export_stat(ofstream &dust_statistics, int num_sen, int **level_stat)
+{
+    dust_statistics << "id, pollution,duration" << endl;
+    for (int i = 0; i < num_sen; i++)
+    {
+        for (int j = 0; j < num_of_level; j++)
+        {
+            dust_statistics << i + 1 << "," << level_def[j] << "," << level_stat[i][j] << endl;
+        }
+    }
+}
+
+/* Export to summary file*/
+void export_summary(vector<dust_data> &data_valid, int num_sen, float *max_index, float *min_index, float *sum_sen, float *count_sen, int count_valid, ofstream &dust_summary)
+{
+    struct dust_data temp;
+    double dist = abs(difftime(mktime(&data_valid[0].tm), mktime(&data_valid[count_valid - 1].tm)));
+    uint64_t hour = floor(dist / 3600);
+    int minu = floor(dist / 60) - 60 * hour;
+    int seco = dist - hour * 3600 - minu * 60;
+
+    dust_summary << "id, parameters, time, values" << endl;
+    for (int i = 0; i < num_sen; i++)
+    {
+        temp = data_valid[max_index[i]];
+        dust_summary << i + 1 << ", max," << temp.time << "," << temp.value << endl;
+        temp = data_valid[min_index[i]];
+        dust_summary << i + 1 << ", min," << temp.time << "," << temp.value << endl;
+        dust_summary << i + 1 << ", mean,";
+        dust_summary << std::setfill('0') << std::setw(2) << hour << ":" << std::setfill('0') << std::setw(2) << minu << ":" << std::setfill('0') << std::setw(2) << seco;
+        dust_summary << "," << fixed << setprecision(1) << sum_sen[i] / count_sen[i] << endl;
+    }
+}
+
+/* Export to aqi file*/
+void export_aqi(ofstream &aqi_data, float **sum_per_hour, int **num_per_hour, int num_pt_time, int num_sen, int **&level_stat, time_t aqi_timet_start)
+{
+
+    char buffer[80];
+    aqi_data << "id,time,values,aqi,pollution" << endl;
+    struct aqi aqi_temp;
+    float mean_per_hour;
+    for (int j = 0; j < num_pt_time; j++)
+    {
+        for (int i = 0; i < num_sen; i++)
+        {
+            aqi_data << i + 1 << ",";
+            strftime(buffer, 26, "%Y:%m:%d %H:%M:%S", localtime(&aqi_timet_start));
+            mean_per_hour = sum_per_hour[i][j] / num_per_hour[i][j];
+            aqi_temp = aqi_cal(mean_per_hour);
+            aqi_data << buffer << "," << fixed << setprecision(1) << mean_per_hour << "," << aqi_temp.aqi_index << "," << aqi_temp.aqi_level << endl;
+            level_stat[i][aqi_temp.aqi_encode]++;
+        }
+        aqi_timet_start += 3600;
+    }
 }
