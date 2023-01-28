@@ -1,14 +1,4 @@
-#include <iostream>
-#include <fstream>
-#include <string> // std::string, std::stof
-#include <cstdlib>
-#include <ctime>
-#include <cmath>
-#include <iomanip>
-#include <vector>
-#include <cstring> // memset
-
-using namespace std;
+#include "Header.h"
 
 string level_def[] = {"Good", "Moderate", "Slightly unhealthy", "Unhealthy", "Very unhealthy", "Hazardous", "Extremely hazardous"};
 int num_of_level = sizeof(level_def) / sizeof(level_def[0]);
@@ -61,33 +51,9 @@ void export_summary(vector<dust_data> &data_valid, int num_sen, float *max_index
 void export_aqi(ofstream &aqi_data, float **sum_per_hour, int **num_per_hour, int num_pt_time, int num_sen, int **&level_stat, time_t aqi_timet_start);
 
 /* dynamically allocate 2 dimensional array */
-void dynam_2D_float (float **&array, int row, int col)
-{
+void dynam_2D_float (float **&array, int row, int col);
 
-    array = new float *[row];
-    for (int i = 0; i < row; i++)
-    {
-        array[i] = new float[col];
-        for (int j = 0; j < col; j++)
-        {
-            array[i][j] = 0; // initial condition
-        }
-    }
-}
-
-void dynam_2D_int (int **&array, int row, int col)
-{
-
-    array = new int *[row];
-    for (int i = 0; i < row; i++)
-    {
-        array[i] = new int[col];
-        for (int j = 0; j < col; j++)
-        {
-            array[i][j] = 0; // initial condition
-        }
-    }
-}
+void dynam_2D_int (int **&array, int row, int col);
 
 int main(int argc, char **argv)
 {
@@ -107,11 +73,11 @@ int main(int argc, char **argv)
 
     /* Open file to export dust_summary */
     ofstream dust_summary;
-    dust_summary.open("dust_summary.csv", ios::out);
+    dust_summary.open("dust_summary.csv", ios::trunc);
 
     /* Open file to export dust_statistics */
     ofstream dust_statistics;
-    dust_statistics.open("dust_statistics.csv", ios::out);
+    dust_statistics.open("dust_statistics.csv", ios::trunc);
 
     /* Creat vector of data sensor */
     vector<dust_data> data_valid;
@@ -344,5 +310,34 @@ void export_aqi(ofstream &aqi_data, float **sum_per_hour, int **num_per_hour, in
             level_stat[i][aqi_temp.aqi_encode]++;
         }
         aqi_timet_start += 3600;
+    }
+}
+
+/* dynamically allocate 2 dimensional array */
+void dynam_2D_float (float **&array, int row, int col)
+{
+
+    array = new float *[row];
+    for (int i = 0; i < row; i++)
+    {
+        array[i] = new float[col];
+        for (int j = 0; j < col; j++)
+        {
+            array[i][j] = 0; // initial condition
+        }
+    }
+}
+
+void dynam_2D_int (int **&array, int row, int col)
+{
+
+    array = new int *[row];
+    for (int i = 0; i < row; i++)
+    {
+        array[i] = new int[col];
+        for (int j = 0; j < col; j++)
+        {
+            array[i][j] = 0; // initial condition
+        }
     }
 }

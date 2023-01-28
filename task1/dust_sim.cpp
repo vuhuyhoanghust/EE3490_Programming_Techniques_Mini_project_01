@@ -1,12 +1,4 @@
-#include <iostream>
-#include <fstream>
-#include <string.h>
-#include <cstdlib>
-#include <ctime>
-#include <iomanip>
-
-using namespace std;
-
+#include "Header.h"
 /* Function to check a number */
 bool isNumber(const string &s);
 
