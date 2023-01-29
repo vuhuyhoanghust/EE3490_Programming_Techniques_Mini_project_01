@@ -1,67 +1,38 @@
 #include "Header.h"
+#include "export_lib.h"
+#include "check_string.h"
 
 string level_def[] = {"Good", "Moderate", "Slightly unhealthy", "Unhealthy", "Very unhealthy", "Hazardous", "Extremely hazardous"};
 int num_of_level = sizeof(level_def) / sizeof(level_def[0]);
 
-class dust_data
-{
-public:
-    string time;
-    float value;
-    int index;
-    struct tm tm;
-
-    void disp()
-    {
-        cout << this->index << "\t" << this->time << "\t" << this->value << "\n";
-    }
-
-    void analy_time()
-    {
-        std::istringstream ss(time);
-        ss >> std::get_time(&tm, "%Y:%m:%d %H:%M:%S");
-    }
-};
-
-struct aqi
-{
-    int aqi_index;
-    string aqi_level;
-    int aqi_encode;
-};
 /* Set filename*/
 string set_filename(int argc, char **argv);
 
+/* Check invalid data*/
+bool check_err_dataline(string word, int count1);
+
 /* Import data to data_valid, data_outlier*/
-void import_data(vector<dust_data> &data_valid, vector<dust_data> &data_outlier, int &count_valid, int &count_outlier, int &count1, ifstream &myfile, int &num_sen);
-
-/* Export outlier data */
-void export_outlier(vector<dust_data> &data_outlier, int count_outlier, ofstream &oulier_data);
-
-/* AQI calculate*/
-aqi aqi_cal(float n);
-
-/* Export to statistics file*/
-void export_stat(ofstream &dust_statistics, int num_sen, int **level_stat);
-
-/* Export to summary file*/
-void export_summary(vector<dust_data> &data_valid, int num_sen, float *max_index, float *min_index, float *sum_sen, float *count_sen, int count_valid, ofstream &dust_summary);
-
-/* Export to aqi file*/
-void export_aqi(ofstream &aqi_data, float **sum_per_hour, int **num_per_hour, int num_pt_time, int num_sen, int **&level_stat, time_t aqi_timet_start);
+void import_data(vector<dust_data> &data_valid, vector<dust_data> &data_outlier, int &count_valid, int &count_outlier, ifstream &myfile, int &num_sen, ofstream &error_file);
 
 /* dynamically allocate 2 dimensional array */
-void dynam_2D_float (float **&array, int row, int col);
-
-void dynam_2D_int (int **&array, int row, int col);
+void dynam_2D_float(float **&array, int row, int col);
+void dynam_2D_int(int **&array, int row, int col);
 
 int main(int argc, char **argv)
 {
     string filename = set_filename(argc, argv);
+    /* Open error file to write */
+    ofstream error_file;
+    error_file.open("task2.log", ios::trunc);
 
     /* Open file of sensor's data (Read file) */
     ifstream myfile;
     myfile.open(filename, ios::in);
+    if (!myfile == 1)
+    {
+        error_file << "Error 01: file not found or cannot be accesse";
+        return 1;
+    }
 
     /* Open file to export outlier data */
     ofstream oulier_data;
@@ -83,17 +54,16 @@ int main(int argc, char **argv)
     vector<dust_data> data_valid;
     vector<dust_data> data_outlier;
 
-    int count1 = 0;
     int count_valid = 0;   // number of valid data
     int count_outlier = 0; // number of outlier data
 
     int num_sen = 0; // number of sensor
 
     /* Import data*/
-    import_data(data_valid, data_outlier, count_valid, count_outlier, count1, myfile, num_sen);
+    import_data(data_valid, data_outlier, count_valid, count_outlier, myfile, num_sen, error_file);
 
     /* Export outlier data to dust_outlier.csv */
-    export_outlier(data_outlier, count_outlier, oulier_data);
+    export_outlier(data_outlier, count_outlier, oulier_data, level_def);
 
     /* Array of min, max, mean*/
     float *min_index = new float[num_sen];
@@ -121,10 +91,9 @@ int main(int argc, char **argv)
 
     int **num_per_hour; // array stores number of times the sensor retrieves the result per hour
     dynam_2D_int(num_per_hour, num_sen, num_pt_time);
- 
+
     int **level_stat; // array stores statistics level of pollution
     dynam_2D_int(level_stat, num_sen, num_of_level);
-
 
     int row_index, col_index;
 
@@ -147,13 +116,13 @@ int main(int argc, char **argv)
         }
     }
     /* Export aqi index to file*/
-    export_aqi(aqi_data, sum_per_hour, num_per_hour, num_pt_time, num_sen, level_stat, aqi_timet_start);
+    export_aqi(aqi_data, sum_per_hour, num_per_hour, num_pt_time, num_sen, level_stat, aqi_timet_start, level_def);
 
     /* Export to summary file*/
     export_summary(data_valid, num_sen, max_index, min_index, sum_sen, count_sen, count_valid, dust_summary);
 
     /* Export to statistics file*/
-    export_stat(dust_statistics, num_sen, level_stat);
+    export_stat(dust_statistics, num_sen, level_stat, level_def, num_of_level);
 
     return 0;
 }
@@ -171,150 +140,69 @@ string set_filename(int argc, char **argv)
 }
 
 /* Import data to data_valid, data_outlier*/
-void import_data(vector<dust_data> &data_valid, vector<dust_data> &data_outlier, int &count_valid, int &count_outlier, int &count1, ifstream &myfile, int &num_sen)
+void import_data(vector<dust_data> &data_valid, vector<dust_data> &data_outlier, int &count_valid, int &count_outlier, ifstream &myfile, int &num_sen, ofstream &error_file)
 {
+    int count1;          // Index of data per line: 0 is id, 1 is time, 2 is values, 3 is aqi, 4 is pollution
+    int count_line = 0;  // line index
+    bool check_err_data; // check error of data
     dust_data temp;
     string line, word;
     getline(myfile, line);
-    while (1)
+    while (!myfile.eof())
     {
-
+        check_err_data = 1;
         getline(myfile, line);
+        count1 = 0;
+        count_line++;
         stringstream s(line);
+
         while (getline(s, word, ','))
         {
-            switch (count1)
+            check_err_data = check_err_dataline(word, count1);
+            if (check_err_data == 0)
+                break; // if data is invalid, exit the loop
+            else
             {
-            case 0:
-                temp.index = stoi(word);
-                break;
-            case 1:
-                temp.time = word;
-                break;
-            case 2:
-                temp.value = stof(word);
-                break;
-            default:
-                break;
+                switch (count1)
+                {
+                case 0:
+                    temp.index = stoi(word);
+                    break;
+                case 1:
+                    temp.time = word;
+                    break;
+                case 2:
+                    temp.value = stof(word);
+                    break;
+                default:
+                    break;
+                }
+                count1 = (count1 + 1) % 3;
             }
-            count1 = (count1 + 1) % 3;
         }
-        if (temp.value >= 5 && temp.value <= 550.5)
-        {
-            data_valid.push_back(temp);
-            data_valid[count_valid].analy_time();
-            count_valid++;
-        }
+        if (check_err_data == 0)
+            error_file << "Error 02: data is missing at line " << count_line << endl;
         else
         {
-            data_outlier.push_back(temp);
-            count_outlier++;
+            if (temp.value >= 5 && temp.value <= 550.5)
+            {
+                data_valid.push_back(temp);
+                data_valid[count_valid].analy_time();
+                count_valid++;
+            }
+            else
+            {
+                data_outlier.push_back(temp);
+                count_outlier++;
+            }
+            if (temp.index > num_sen)
+                num_sen = temp.index;
         }
-        if (temp.index > num_sen)
-            num_sen = temp.index;
-        if (myfile.eof())
-            break;
-    }
-}
-
-/* Export outlier data */
-void export_outlier(vector<dust_data> &data_outlier, int count_outlier, ofstream &oulier_data)
-{
-    oulier_data << "number of outliers: " << count_outlier << endl;
-    oulier_data << "id,time,values" << endl;
-    for (int i = 0; i < count_outlier; i++)
-    {
-        oulier_data << data_outlier[i].index << "," << data_outlier[i].time << "," << data_outlier[i].value << endl;
-    }
-    oulier_data.close();
-}
-
-/* AQI calculate*/
-aqi aqi_cal(float n)
-
-{
-    // n: average value per hour
-    aqi temp;
-    float slope;
-    float concen_def[] = {0, 12, 35.5, 55.5, 150.5, 250.5, 350.5, 550.5};
-    float aqi_def[] = {0, 50, 100, 150, 200, 300, 400, 500};
-    int length_arr = sizeof(concen_def) / sizeof(float);
-    for (int i = 1; i < length_arr; i++)
-    {
-        if (n < concen_def[i])
-        {
-            slope = (aqi_def[i] - aqi_def[i - 1]) / (concen_def[i] - concen_def[i - 1]);
-            temp.aqi_index = aqi_def[i - 1] + slope * (n - concen_def[i - 1]);
-            temp.aqi_level = level_def[i - 1];
-            temp.aqi_encode = i - 1;
-            return temp;
-        }
-    }
-    temp.aqi_index = 0;
-    temp.aqi_level = "Error";
-    return temp;
-}
-
-/* Export to statistics file*/
-void export_stat(ofstream &dust_statistics, int num_sen, int **level_stat)
-{
-    dust_statistics << "id, pollution,duration" << endl;
-    for (int i = 0; i < num_sen; i++)
-    {
-        for (int j = 0; j < num_of_level; j++)
-        {
-            dust_statistics << i + 1 << "," << level_def[j] << "," << level_stat[i][j] << endl;
-        }
-    }
-}
-
-/* Export to summary file*/
-void export_summary(vector<dust_data> &data_valid, int num_sen, float *max_index, float *min_index, float *sum_sen, float *count_sen, int count_valid, ofstream &dust_summary)
-{
-    struct dust_data temp;
-    double dist = abs(difftime(mktime(&data_valid[0].tm), mktime(&data_valid[count_valid - 1].tm)));
-    uint64_t hour = floor(dist / 3600);
-    int minu = floor(dist / 60) - 60 * hour;
-    int seco = dist - hour * 3600 - minu * 60;
-
-    dust_summary << "id, parameters, time, values" << endl;
-    for (int i = 0; i < num_sen; i++)
-    {
-        temp = data_valid[max_index[i]];
-        dust_summary << i + 1 << ", max," << temp.time << "," << temp.value << endl;
-        temp = data_valid[min_index[i]];
-        dust_summary << i + 1 << ", min," << temp.time << "," << temp.value << endl;
-        dust_summary << i + 1 << ", mean,";
-        dust_summary << std::setfill('0') << std::setw(2) << hour << ":" << std::setfill('0') << std::setw(2) << minu << ":" << std::setfill('0') << std::setw(2) << seco;
-        dust_summary << "," << fixed << setprecision(1) << sum_sen[i] / count_sen[i] << endl;
-    }
-}
-
-/* Export to aqi file*/
-void export_aqi(ofstream &aqi_data, float **sum_per_hour, int **num_per_hour, int num_pt_time, int num_sen, int **&level_stat, time_t aqi_timet_start)
-{
-
-    char buffer[80];
-    aqi_data << "id,time,values,aqi,pollution" << endl;
-    struct aqi aqi_temp;
-    float mean_per_hour;
-    for (int j = 0; j < num_pt_time; j++)
-    {
-        for (int i = 0; i < num_sen; i++)
-        {
-            aqi_data << i + 1 << ",";
-            strftime(buffer, 26, "%Y:%m:%d %H:%M:%S", localtime(&aqi_timet_start));
-            mean_per_hour = sum_per_hour[i][j] / num_per_hour[i][j];
-            aqi_temp = aqi_cal(mean_per_hour);
-            aqi_data << buffer << "," << fixed << setprecision(1) << mean_per_hour << "," << aqi_temp.aqi_index << "," << aqi_temp.aqi_level << endl;
-            level_stat[i][aqi_temp.aqi_encode]++;
-        }
-        aqi_timet_start += 3600;
     }
 }
 
 /* dynamically allocate 2 dimensional array */
-void dynam_2D_float (float **&array, int row, int col)
+void dynam_2D_float(float **&array, int row, int col)
 {
 
     array = new float *[row];
@@ -328,7 +216,7 @@ void dynam_2D_float (float **&array, int row, int col)
     }
 }
 
-void dynam_2D_int (int **&array, int row, int col)
+void dynam_2D_int(int **&array, int row, int col)
 {
 
     array = new int *[row];
@@ -339,5 +227,23 @@ void dynam_2D_int (int **&array, int row, int col)
         {
             array[i][j] = 0; // initial condition
         }
+    }
+}
+
+bool check_err_dataline(string word, int count1)
+{
+    // return 0 if (string) word is invalid data
+    if (isBlank(word) == 1)
+        return 0;
+    switch (count1)
+    {
+    case 0:
+        return isPosIntNumber(word);
+    case 1:
+        return isTime(word);
+    case 2:
+        return isPosRealNumber(word);
+    default:
+        return 1;
     }
 }
