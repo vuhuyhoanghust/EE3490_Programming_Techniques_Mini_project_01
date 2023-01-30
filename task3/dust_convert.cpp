@@ -65,7 +65,26 @@ union float_uint32
 void import_data(int &count1, byte_seq &temp, struct tm &tm, string word);
 int main(int argc, char **argv)
 {
-    string data_filename = argv[1], hex_filename = argv[2];
+    /* Open error file to write */
+    ofstream error_file;
+    error_file.open("task3.log", ios::trunc);
+
+    string data_filename, hex_filename;
+    /* Check argument*/
+    switch (argc)
+    {
+    case 3:
+        data_filename = argv[1];
+        hex_filename = argv[2];
+        break;
+    case 1:
+        data_filename = "data_filename.csv";
+        hex_filename = "hex_filename.dat";
+        break;
+    default:
+        error_file << "Error 05: Invalid command";
+        return 1;
+    }
 
     byte_seq temp;
     struct tm tm;
@@ -77,10 +96,6 @@ int main(int argc, char **argv)
     /* Open output file to write */
     ofstream hex_file;
     hex_file.open(hex_filename, ios::trunc);
-
-    /* Open error file to write */
-    ofstream error_file;
-    error_file.open("task3.log", ios::trunc);
 
     /* Check error close open file */
     int check_file = check_err_file(data_file, hex_file);

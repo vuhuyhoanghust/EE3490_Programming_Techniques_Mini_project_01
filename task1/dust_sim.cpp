@@ -1,6 +1,4 @@
 #include "Header.h"
-/* Function to check a number */
-bool isNumber(const string &s);
 
 /* Function to check error input */
 int check_err(int count, char **args, int check_file);
@@ -17,7 +15,6 @@ void exp_data(ofstream &myfile, int *vari);
 /* main */
 int main(int argc, char **argv)
 {
-
     string mer_str;
     int vari[3]; // vari[0]: number of sensors, vari[1]: sampling, vari[2]: interval
 
@@ -47,16 +44,6 @@ int main(int argc, char **argv)
     return 0;
 }
 
-/* Function to check a number */
-bool isNumber(const string &s)
-{
-    for (char const &ch : s)
-    {
-        if (std::isdigit(ch) == 0)
-            return false;
-    }
-    return true;
-}
 
 /* Function to check error input */
 int check_err(int count, char **args, int check_file)

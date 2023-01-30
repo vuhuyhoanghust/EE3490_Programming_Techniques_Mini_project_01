@@ -1,32 +1,7 @@
 #pragma once
 #include "Header.h"
 
-class dust_data
-{
-public:
-    string time;
-    float value;
-    int index;
-    struct tm tm;
 
-    void disp()
-    {
-        cout << this->index << "\t" << this->time << "\t" << this->value << "\n";
-    }
-
-    void analy_time()
-    {
-        std::istringstream ss(time);
-        ss >> std::get_time(&tm, "%Y:%m:%d %H:%M:%S");
-    }
-};
-
-struct aqi
-{
-    int aqi_index;
-    string aqi_level;
-    int aqi_encode;
-};
 /* Export outlier data */
 void export_outlier(vector<dust_data> &data_outlier, int count_outlier, ofstream &oulier_data, string level_def[]);
 /* Export to statistics file*/
