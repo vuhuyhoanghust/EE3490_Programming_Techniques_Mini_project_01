@@ -1,6 +1,5 @@
 #include "export_lib.h"
 
-
 /* AQI calculate*/
 aqi aqi_cal(float n, string level_def[])
 
@@ -37,8 +36,6 @@ void export_outlier(vector<dust_data> &data_outlier, int count_outlier, ofstream
     }
     oulier_data.close();
 }
-
-
 
 /* Export to statistics file*/
 void export_stat(ofstream &dust_statistics, int num_sen, int **level_stat, string level_def[], int num_of_level)
@@ -87,12 +84,15 @@ void export_aqi(ofstream &aqi_data, float **sum_per_hour, int **num_per_hour, in
     {
         for (int i = 0; i < num_sen; i++)
         {
-            aqi_data << i + 1 << ",";
-            strftime(buffer, 26, "%Y:%m:%d %H:%M:%S", localtime(&aqi_timet_start));
-            mean_per_hour = sum_per_hour[i][j] / num_per_hour[i][j];
-            aqi_temp = aqi_cal(mean_per_hour, level_def);
-            aqi_data << buffer << "," << fixed << setprecision(1) << mean_per_hour << "," << aqi_temp.aqi_index << "," << aqi_temp.aqi_level << endl;
-            level_stat[i][aqi_temp.aqi_encode]++;
+            if (num_per_hour[i][j] != 0)
+            {
+                aqi_data << i + 1 << ",";
+                strftime(buffer, 26, "%Y:%m:%d %H:%M:%S", localtime(&aqi_timet_start));
+                mean_per_hour = sum_per_hour[i][j] / num_per_hour[i][j];
+                aqi_temp = aqi_cal(mean_per_hour, level_def);
+                aqi_data << buffer << "," << fixed << setprecision(1) << mean_per_hour << "," << aqi_temp.aqi_index << "," << aqi_temp.aqi_level << endl;
+                level_stat[i][aqi_temp.aqi_encode]++;
+            }
         }
         aqi_timet_start += 3600;
     }

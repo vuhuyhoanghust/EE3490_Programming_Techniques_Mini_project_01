@@ -19,11 +19,6 @@ public:
     int index;
     struct tm tm;
 
-    void disp()
-    {
-        cout << this->index << "\t" << this->time << "\t" << this->value << "\n";
-    }
-
     void analy_time()
     {
         std::istringstream ss(time);
